@@ -45,17 +45,21 @@ vehicle_parameters = {'wheel_circumference':1.89}
 class DERIVED:
     def __init__(self):
         self.last_sample = time.monotonic()
-        self.sampling_interval = 0.2
+        self.sampling_interval = 0.5
 
     def update(self):
         if time.monotonic() - self.last_sample > self.sampling_interval:
-            self.last_sample = time.monotonic()
             self.compute_derived()
-            print('o', end='')
 
     def compute_derived(self):
+        # reset time stamps
+        time_delta = time.monotonic() - self.last_sample
+        self.last_sample = time.monotonic()
+        print(f'o - {time_delta}', end='')
         derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
-        derived_data['distance'] += derived_data['speed']/1000.0
+        derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
+        derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
+        derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
 
 class CONSOLE:
 
@@ -66,8 +70,8 @@ class CONSOLE:
         self.display = [
                         ('speed',     derived_data, 'S',   1),
                         ('motor_rpm', vehicle_data, 'rpm', 0),
-                        ('high_cell_voltage',     vehicle_data, 'Vc', 3),
-                        ('low_cell_voltage',     vehicle_data, 'Vc', 3),
+                        ('high_cell_voltage',     vehicle_data, 'Vh', 3),
+                        ('low_cell_voltage',     vehicle_data, 'Vl', 3),
                         ('battery_voltage',     vehicle_data, 'Vc', 1),
                         ('battery_voltage_BMS', vehicle_data, 'Vb', 1),
                         ('battery_current',     vehicle_data, 'Ic', 1),
@@ -130,6 +134,8 @@ class CANBUS:
             # iterate over variables and store for expected messages
             # if message.arbitration_id in self.packet_variables.keys():
             if message.id in self.packet_variables.keys():
+                if message.id == 0x1b01:
+                    print(message.id)
                 for pv in self.packet_variables[message.id]:
                     vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
         else:
@@ -188,11 +194,11 @@ class TFT:
             text = ''
             #text = f'IR {derived_data["internal_resistance"]*1000:.0f}'
         elif self.update_line == 4:
-            text = f'{derived_data["speed"]:.1f}mps {derived_data["distance"]:.1f}km'
+            text = f'{derived_data["speed"]:.1f}mps {derived_data["distance"]:.5f}km'
         elif self.update_line == 5:
             pass
-            text = ''
-            #text = f'{derived_data["charge"]:.1f}Ah {derived_data["energy"]:.0f}Wh {derived_data["trip_efficiency"]:.0f}'
+            # text = ''
+            text = f'{derived_data["charge"]:.5f}Ah {derived_data["energy"]:.5f}Wh {derived_data["trip_efficiency"]:.0f}'
         elif self.update_line == 6:
             text = ''
             #text = f'dt: {time_stamps["event_loop_elapsed"] * 1000:.0f}'
