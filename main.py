@@ -4,12 +4,20 @@ import struct
 import time
 import canio
 import board
+import busio
+import sdcardio
+import storage
+import adafruit_sdcard
+import os
 import digitalio
 import displayio
+from adafruit_progressbar import ProgressBar
 import terminalio
 from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label
 from adafruit_hx8357 import HX8357
+
+spi = board.SPI()
 
 vehicle_data = {'battery_voltage':0,
                 'battery_current':0,
@@ -52,10 +60,10 @@ class DERIVED:
             self.compute_derived()
 
     def compute_derived(self):
+        print('o', end='')
         # reset time stamps
         time_delta = time.monotonic() - self.last_sample
         self.last_sample = time.monotonic()
-        print(f'o - {time_delta}', end='')
         derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
         derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
         derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
@@ -106,7 +114,7 @@ class CANBUS:
             boost_enable.switch_to_output(True)
 
         self.can = canio.CAN(rx=board.CAN_RX, tx=board.CAN_TX, baudrate=500_000, auto_restart=True)
-        self.listener = self.can.listen(timeout=.5)
+        self.listener = self.can.listen(timeout=.005)
 
         # self.bus = can.interface.Bus(bustype='slcan',
         #                         channel='/dev/tty.usbmodem14101',
@@ -141,7 +149,133 @@ class CANBUS:
         else:
             print('.', end='')
 
+class SDCARD:
+    def __init__(self):
+
+        self.cs = board.D5
+        self.sdcard = sdcardio.SDCard(spi, self.cs)
+
+        self.vfs = storage.VfsFat(self.sdcard)
+        self.num_data_points = 10
+        self.data_point = 0
+        self.start_time = 0
+
+        # TODO: graceful fail if no SD card
+        storage.mount(self.vfs, '/sd')
+
+        self.state = 'write'
+        self.last_write_time = 0.0
+        self.write_interval = 1.00
+        self.start_time = 0.0
+
+        files = os.listdir('/sd/')
+
+        i = 0
+        while True:
+            filename = 'test_{:02d}.csv'.format(i)
+            print(filename)
+            i = i + 1
+            if filename not in files:
+                self.filename = '/sd/' + filename
+                break
+
+        with open(self.filename, 'w') as file:
+            file.write('time,hv,lv,battery_voltage,battery_current,battery_voltage_BMS,battery_current_BMS,motor_current,battery_temperature,BMS_temperature,motor_temperature,controller_temperature,internal_resistance,distance,motor_rpm\n')
+
+    def update(self):
+
+        if self.state == 'idle':
+            # wait until tick
+            if time.monotonic() - self.last_write_time > self.write_interval:
+                self.state = 'write'
+
+        elif self.state == 'write':
+            self.last_write_time = time.monotonic()
+            with open(self.filename, 'a') as file:
+                file.write('%0.3f' % (time.monotonic() - self.start_time))
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['high_cell_voltage'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['low_cell_voltage'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['battery_voltage'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['battery_current'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['battery_voltage_BMS'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['battery_current_BMS'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['motor_current'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['high_battery_temp'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['high_BMS_temp'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['motor_temperature'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['controller_temperature'])
+                file.write(',')
+                file.write('%0.4f' % derived_data['internal_resistance'])
+                file.write(',')
+                file.write('%0.2f' % derived_data['distance'])
+                file.write(',')
+                file.write('%0.2f' % vehicle_data['motor_rpm'])
+                file.write('\n')
+            self.state = 'idle'
+            # self.state = 'write'
+
+
+
 class TFT:
+
+    # def __init__(self, spi):
+    def __init__(self):
+        displayio.release_displays()
+        # following https://learn.adafruit.com/adafruit-3-5-tft-featherwing/3-5-tft-featherwing
+        self.tft_cs = board.D9
+        self.tft_dc = board.D10
+        self.display_bus = displayio.FourWire(spi,
+                                              command=self.tft_dc,
+                                              chip_select=self.tft_cs)
+        self.display = HX8357(self.display_bus, width=480, height=320)
+        # font = terminalio.FONT
+        # font = bitmap_font.load_font("fonts/Arial-16.bdf")
+        self.bar_group = displayio.Group(max_size=10)
+        self.num_bars = 3
+        x_border = 20
+        y_border = 20
+        width = self.display.width - 2 * x_border
+        # height = (self.display.height - 2 * y_border) // num_bars
+        height = 50
+        x = self.display.width // 2 - width // 2
+        y = y_border
+        # self.bar_group.append(ProgressBar(x, y, width, height, 0.5))
+        colors = [0xFF0000, 0x00FF00, 0x0000FF]
+        # Append progress_bar to the splash group
+
+        for i in range(self.num_bars):
+            self.bar_group.append(ProgressBar(x,
+                                    y + i * height,
+                                    width,
+                                    height,
+                                    bar_color = colors[i % len(colors)]))
+        self.display.show(self.bar_group)
+
+    def update(self):
+
+        display_lines = [[derived_data["speed"], 15],
+                         [vehicle_data["high_cell_voltage"], 4.2],
+                         [vehicle_data["low_cell_voltage"], 4.2]]
+
+        # self.bar_group[0].progress = vehicle_data["high_cell_voltage"] / 4.2
+        for i in range(self.num_bars):
+            self.bar_group[i].progress = display_lines[i][0]/display_lines[i][1]
+        # self.bar_group[0].progress = derived_data["speed"] / 15.0
+        # self.bar_group[1].progress = vehicle_data["high_cell_voltage"] / 4.2
+        self.display.show(self.bar_group)
+
+class TFT_2:
 
     # def __init__(self, spi):
     def __init__(self):
@@ -172,6 +306,15 @@ class TFT:
         for tl in self.text_labels:
             self.text_group.append(tl)
         self.update_line = 0
+        self.bar_group = displayio.Group(max_size=10)
+        x_border = 20
+        y_border = 20
+        width = self.display.width - 2 * x_border
+        height = 20
+        x = self.display.width // 2 - width // 2
+        y = self.display.height - 2 * y_border
+        self.bar_group.append(ProgressBar(x, y, width, height, 0.5))
+        self.display.show(self.bar_group)
 
     def update(self):
 
@@ -210,15 +353,27 @@ class TFT:
             self.update_line = 0
 
         self.display.show(self.text_group)
+        # self.bar_group[0].progress = vehicle_data["high_cell_voltage"] / 4.2
+        self.bar_group[0].progress = derived_data["speed"] / 15.0
+        self.display.show(self.bar_group)
 
 console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
+sdcard = SDCARD()
+
+
+debug_pin = digitalio.DigitalInOut(board.D11)
+debug_pin.direction = digitalio.Direction.OUTPUT
 
 print("ENNOID/VESC CAN reader")
 while 1:
     canbus.update()
     console.update()
     derived.update()
+    debug_pin.value = True
     tft.update()
+    debug_pin.value = False
+    sdcard.update()
+    time.sleep(0.050)
