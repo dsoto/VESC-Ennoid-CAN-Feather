@@ -1,4 +1,4 @@
-# desktop implementation of listener for VESC/ENNOID CAN packets
+# can feather dashboard for vesc ennoid
 
 import struct
 import time
@@ -71,7 +71,7 @@ class DERIVED:
 class CONSOLE:
 
     def __init__(self):
-        self.display_update_seconds = 0.2
+        self.display_update_seconds = 1.0
         self.last_display = time.monotonic()
         # (key, data dictionary, display abbreviation, precision)
         self.display = [
@@ -111,7 +111,7 @@ class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 5.0
+        self.can_timeout = 10.0
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -150,8 +150,14 @@ class CANBUS:
             if message.id in self.packet_variables.keys():
             # if message.id in self.packet_variables.keys():
                 self.received_flags[message.id] = True
+                # print(self.received_flags)
+                print('+', end='')
+                # print(hex(message.id))
                 for pv in self.packet_variables[message.id]:
                     vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
+            else:
+                print('-', end='')
+                # print(hex(message.id))
         else:
             print('.', end='')
 
@@ -391,7 +397,7 @@ console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT_2()
-sdcard = SDCARD()
+# sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -401,8 +407,9 @@ print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data)
     ready_to_calculate = derived.update(ready_to_calculate)
+    console.update()
     debug_pin.value = True
-    tft.update(vehicle_data)
+    # tft.update(vehicle_data)
     debug_pin.value = False
     # sdcard.update()
     #time.sleep(0.050)
