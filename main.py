@@ -55,19 +55,18 @@ class DERIVED:
         self.last_sample = time.monotonic()
         self.sampling_interval = 0.5
 
-    def update(self):
-        if time.monotonic() - self.last_sample > self.sampling_interval:
-            self.compute_derived()
 
-    def compute_derived(self):
-        print('o', end='')
-        # reset time stamps
-        time_delta = time.monotonic() - self.last_sample
-        self.last_sample = time.monotonic()
-        derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
-        derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
-        derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
-        derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
+    def update(self, ready):
+        if ready == True:
+            print('o', end='')
+            # reset time stamps
+            time_delta = time.monotonic() - self.last_sample
+            self.last_sample = time.monotonic()
+            derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
+            derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
+            derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
+            derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
+        return False
 
 class CONSOLE:
 
@@ -102,13 +101,18 @@ class CONSOLE:
         for l in self.display:
             # TODO: how to format number of decimal places
             #print(f'{l[2]} {l[1][l[0]]:.{l[3]}f}', end=' | ')
-            print(f'{l[2]} {l[1][l[0]]:.3f}', end=' | ')
+            if l[1][l[0]] == None:
+                print(f'{l[2]} ---', end=' | ')
+            else:
+                print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
         print(f'{time.monotonic():.3f}')
 
 class CANBUS:
 
     def __init__(self):
 
+        self.can_timeout = 5.0
+        self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
             boost_enable.switch_to_output(True)
@@ -134,20 +138,36 @@ class CANBUS:
                                  0x210a: [('high_battery_temp', '>i', 0, 4, 1E1),
                                           ('high_BMS_temp',     '>i', 4, 4, 1E1)]}
 
-    def update(self):
+        self.received_flags = {k:False for k in self.packet_variables.keys()}
+
+
+    def update(self, vehicle_data):
         # message = self.bus.recv(timeout=0.050)
         message = self.listener.receive()
         if message is not None:
-            print('+', end='')
+            # print('+', end='')
             # iterate over variables and store for expected messages
-            # if message.arbitration_id in self.packet_variables.keys():
             if message.id in self.packet_variables.keys():
-                if message.id == 0x1b01:
-                    print(message.id)
+            # if message.id in self.packet_variables.keys():
+                self.received_flags[message.id] = True
                 for pv in self.packet_variables[message.id]:
                     vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
         else:
             print('.', end='')
+
+        if time.monotonic() - self.last_read > self.can_timeout:
+            for k in vehicle_data.keys():
+                vehicle_data[k] = None
+            self.received_flags = {k:False for k in self.packet_variables.keys()}
+            self.last_read = time.monotonic()
+            return False
+
+        if all(self.received_flags.values()) == True:
+            self.received_flags = {k:False for k in self.packet_variables.keys()}
+            self.last_read = time.monotonic()
+            return True
+        else:
+            return False
 
 class SDCARD:
     def __init__(self):
@@ -316,7 +336,7 @@ class TFT_2:
         self.bar_group.append(ProgressBar(x, y, width, height, 0.5))
         self.display.show(self.bar_group)
 
-    def update(self):
+    def update(self, vehicle_data):
 
         # print('enter update', time.monotonic())
         # rotate through lines to get better response rate and reduce flicker
@@ -324,12 +344,21 @@ class TFT_2:
         if self.update_line == 0:
             pass
             # text = ''
-            text = f'{vehicle_data["high_cell_voltage"]:.3f}V {vehicle_data["low_cell_voltage"]:.3f}V'
+            if vehicle_data["high_cell_voltage"] == None:
+                text = '000.0V 000.0V'
+            else:
+                text = f'{vehicle_data["high_cell_voltage"]:.3f}V {vehicle_data["low_cell_voltage"]:.3f}V'
         elif self.update_line == 1:
-            text = f'Tb {vehicle_data["high_battery_temp"]:.0f} Tm {vehicle_data["motor_temperature"]:.0f} Tc {vehicle_data["controller_temperature"]:.0f} Tbms {vehicle_data["high_BMS_temp"]:.0f}'
+            if vehicle_data["high_battery_temp"] == None or vehicle_data["motor_temperature"] == None:
+                text = 'Tb 00 Tm 00 Tc 00 Tbms 00'
+            else:
+                text = f'Tb {vehicle_data["high_battery_temp"]:.0f} Tm {vehicle_data["motor_temperature"]:.0f} Tc {vehicle_data["controller_temperature"]:.0f} Tbms {vehicle_data["high_BMS_temp"]:.0f}'
         elif self.update_line == 2:
             # if abs(vehicle_data['battery_current']) < 10.0:
-            text = f'Im {vehicle_data["motor_current"]:.1f} Ic {vehicle_data["battery_current"]:.0f} Ib {vehicle_data["battery_current_BMS"]:.0f} '
+            if vehicle_data["motor_current"] == None or vehicle_data["battery_current_BMS"] == None or vehicle_data["battery_current"] == None:
+                text = 'Im 0.0 Ic 0 Ib 0'
+            else:
+                text = f'Im {vehicle_data["motor_current"]:.1f} Ic {vehicle_data["battery_current"]:.0f} Ib {vehicle_data["battery_current_BMS"]:.0f} '
             # else:
                 # text = f'B {vehicle_data["battery_current"]:.0f} M {vehicle_data["motor_current"]:.0f} C {vehicle_data["battery_current"]:.0f} '
         elif self.update_line == 3:
@@ -337,11 +366,12 @@ class TFT_2:
             text = ''
             #text = f'IR {derived_data["internal_resistance"]*1000:.0f}'
         elif self.update_line == 4:
-            text = f'{derived_data["speed"]:.1f}mps {derived_data["distance"]:.5f}km'
+            text = ''
+            # text = f'{derived_data["speed"]:.1f}mps {derived_data["distance"]:.5f}km'
         elif self.update_line == 5:
             pass
-            # text = ''
-            text = f'{derived_data["charge"]:.5f}Ah {derived_data["energy"]:.5f}Wh {derived_data["trip_efficiency"]:.0f}'
+            text = ''
+            # text = f'{derived_data["charge"]:.5f}Ah {derived_data["energy"]:.5f}Wh {derived_data["trip_efficiency"]:.0f}'
         elif self.update_line == 6:
             text = ''
             #text = f'dt: {time_stamps["event_loop_elapsed"] * 1000:.0f}'
@@ -369,11 +399,10 @@ debug_pin.direction = digitalio.Direction.OUTPUT
 
 print("ENNOID/VESC CAN reader")
 while 1:
-    canbus.update()
-    console.update()
-    derived.update()
+    ready_to_calculate = canbus.update(vehicle_data)
+    ready_to_calculate = derived.update(ready_to_calculate)
     debug_pin.value = True
-    tft.update()
+    tft.update(vehicle_data)
     debug_pin.value = False
-    sdcard.update()
+    # sdcard.update()
     #time.sleep(0.050)
