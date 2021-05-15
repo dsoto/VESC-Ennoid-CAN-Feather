@@ -131,8 +131,8 @@ class CANBUS:
                                           ('battery_current_BMS', '>i', 4, 4, 1E5)],
                                  0x1f0a: [('high_cell_voltage', '>i', 0, 4, 1E5),
                                           ('low_cell_voltage',  '>i', 4, 4, 1E5)],
-                                 0x210a: [('high_battery_temp', '>H', 2, 2, 1E2),
-                                          ('high_BMS_temp',     '>H', 6, 2, 1E2)]}
+                                 0x210a: [('high_battery_temp', '>i', 0, 4, 1E1),
+                                          ('high_BMS_temp',     '>i', 4, 4, 1E1)]}
 
     def update(self):
         # message = self.bus.recv(timeout=0.050)
@@ -354,13 +354,13 @@ class TFT_2:
 
         self.display.show(self.text_group)
         # self.bar_group[0].progress = vehicle_data["high_cell_voltage"] / 4.2
-        self.bar_group[0].progress = derived_data["speed"] / 15.0
-        self.display.show(self.bar_group)
+        # self.bar_group[0].progress = derived_data["speed"] / 15.0
+        # self.display.show(self.bar_group)
 
 console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
-tft = TFT()
+tft = TFT_2()
 sdcard = SDCARD()
 
 
@@ -376,4 +376,4 @@ while 1:
     tft.update()
     debug_pin.value = False
     sdcard.update()
-    time.sleep(0.050)
+    #time.sleep(0.050)
