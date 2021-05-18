@@ -347,15 +347,16 @@ class TFT_2:
         for tl in self.text_labels:
             self.text_group.append(tl)
         self.update_line = 0
-        self.bar_group = displayio.Group(max_size=10)
-        x_border = 20
-        y_border = 20
-        width = self.display.width - 2 * x_border
-        height = 20
-        x = self.display.width // 2 - width // 2
-        y = self.display.height - 2 * y_border
-        self.bar_group.append(ProgressBar(x, y, width, height, 0.5))
-        self.display.show(self.bar_group)
+        self.display.show(self.text_group)
+        # self.bar_group = displayio.Group(max_size=10)
+        # x_border = 20
+        # y_border = 20
+        # width = self.display.width - 2 * x_border
+        # height = 20
+        # x = self.display.width // 2 - width // 2
+        # y = self.display.height - 2 * y_border
+        # self.bar_group.append(ProgressBar(x, y, width, height, 0.5))
+        # self.display.show(self.bar_group)
 
     def update(self, vehicle_data):
 
