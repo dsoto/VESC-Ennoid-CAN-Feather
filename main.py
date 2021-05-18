@@ -71,7 +71,7 @@ class DERIVED:
 class CONSOLE:
 
     def __init__(self):
-        self.display_update_seconds = 1.0
+        self.display_update_seconds = 0.05
         self.last_display = time.monotonic()
         # (key, data dictionary, display abbreviation, precision)
         self.display = [
@@ -90,11 +90,14 @@ class CONSOLE:
                         ('high_BMS_temp', vehicle_data, 'Tbms', 1),
                         ('distance', derived_data, 'D', 1),
                         ]
+        self.num_display = len(self.display)
+        self.line_counter = 0
+
     def update(self):
         if time.monotonic() - self.last_display > self.display_update_seconds:
-            self.print_to_console()
+            # self.print_to_console()
+            self.print_to_console_by_line()
             self.last_display = time.monotonic()
-
 
     def print_to_console(self):
         print()
@@ -107,11 +110,23 @@ class CONSOLE:
                 print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
         print(f'{time.monotonic():.3f}')
 
+    def print_to_console_by_line(self):
+        print()
+        l = self.display[self.line_counter]
+        if self.line_counter >= (self.num_display - 1):
+            self.line_counter = 0
+        else:
+            self.line_counter += 1
+        if l[1][l[0]] == None:
+            print(f'{l[2]} ---', end=' | ')
+        else:
+            print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
+
 class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 10.0
+        self.can_timeout = 2.0
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -407,8 +422,8 @@ print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data)
     ready_to_calculate = derived.update(ready_to_calculate)
-    console.update()
     debug_pin.value = True
+    console.update()
     # tft.update(vehicle_data)
     debug_pin.value = False
     # sdcard.update()
