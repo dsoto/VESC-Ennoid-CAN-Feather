@@ -50,6 +50,8 @@ derived_data = {'internal_resistance':0.090,
 
 vehicle_parameters = {'wheel_circumference':1.89}
 
+strings = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
 class DERIVED:
     def __init__(self):
         self.last_sample = time.monotonic()
@@ -409,10 +411,61 @@ class TFT_2:
         # self.bar_group[0].progress = derived_data["speed"] / 15.0
         # self.display.show(self.bar_group)
 
+class TFT_3:
+    def __init__(self):
+        self.update_interval = 0.1
+        self.last_update = time.monotonic()
+        self.update_line = 0
+        self.update_string = 0
+
+        displayio.release_displays()
+        # following https://learn.adafruit.com/adafruit-3-5-tft-featherwing/3-5-tft-featherwing
+        self.spi = board.SPI()
+        self.tft_cs = board.D9
+        self.tft_dc = board.D10
+        self.display_bus = displayio.FourWire(self.spi,
+                                              command=self.tft_dc,
+                                              chip_select=self.tft_cs)
+        self.display = HX8357(self.display_bus, width=480, height=320)
+        font = bitmap_font.load_font("fonts/tnr-28.bdf")
+        color = 0xFFFFFF
+        y_spacing = 34
+        y_offset = 16
+
+        self.text_labels = [label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 1 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 2 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 3 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 4 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 5 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 6 * y_spacing)]
+        self.text_group = displayio.Group(max_size=8)
+        for tl in self.text_labels:
+            self.text_group.append(tl)
+        self.display.show(self.text_group)
+
+    def update(self, strings):
+        if time.monotonic() - self.last_update > self.update_interval:
+            self.last_update = time.monotonic()
+            # self.print_to_console()
+            self.text_group[self.update_line].text = strings[self.update_string]
+
+            self.update_line += 1
+            if self.update_line > 6:
+                self.update_line = 0
+
+            self.update_string += 1
+            if self.update_string > 5:
+                self.update_string = 0
+
+            self.display.show(self.text_group)
+
+
 console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
-tft = TFT_2()
+# tft = TFT_2()
+tft = TFT_3()
 # sdcard = SDCARD()
 
 
@@ -423,9 +476,9 @@ print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data)
     ready_to_calculate = derived.update(ready_to_calculate)
-    debug_pin.value = True
     console.update()
-    # tft.update(vehicle_data)
+    debug_pin.value = True
+    tft.update(strings)
     debug_pin.value = False
     # sdcard.update()
     #time.sleep(0.050)
