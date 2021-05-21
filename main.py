@@ -51,13 +51,24 @@ derived_data = {'internal_resistance':0.090,
 vehicle_parameters = {'wheel_circumference':1.89}
 
 strings = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+strings = [''] * 12
 
 class DERIVED:
     def __init__(self):
         self.last_sample = time.monotonic()
         self.sampling_interval = 0.5
         self.string_formats = [('high_cell_voltage',     vehicle_data, 'Vh', 3),
-                        ('low_cell_voltage',     vehicle_data, 'Vl', 3)]
+                               ('low_cell_voltage',     vehicle_data, 'Vl', 3),
+                               ('speed',     derived_data, 'S',   1),
+                               ('motor_rpm', vehicle_data, 'rpm', 0),
+                                ('high_battery_temp', vehicle_data, 'Tbat', 1),
+                                ('high_BMS_temp', vehicle_data, 'Tbms', 1),
+                        ('battery_voltage_BMS', vehicle_data, 'Vb', 1),
+                        ('battery_current',     vehicle_data, 'Ic', 1),
+                        ('battery_current_BMS', vehicle_data, 'Ib', 1),
+                        ('motor_current',       vehicle_data, 'Im', 1),
+                        ('controller_temperature', vehicle_data, 'Tc', 1),
+                        ('motor_temperature', vehicle_data, 'Tm', 1)]
 
     def update(self, ready, strings):
         if ready == True:
@@ -278,8 +289,6 @@ class SDCARD:
             self.state = 'idle'
             # self.state = 'write'
 
-
-
 class TFT:
 
     # def __init__(self, spi):
@@ -423,13 +432,12 @@ class TFT_2:
 
 class TFT_3:
     def __init__(self):
-        self.update_interval = 0.1
+        self.update_interval = 0.050
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
 
         displayio.release_displays()
-        # following https://learn.adafruit.com/adafruit-3-5-tft-featherwing/3-5-tft-featherwing
         self.spi = board.SPI()
         self.tft_cs = board.D9
         self.tft_dc = board.D10
@@ -448,8 +456,13 @@ class TFT_3:
                             label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 3 * y_spacing),
                             label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 4 * y_spacing),
                             label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 5 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 6 * y_spacing)]
-        self.text_group = displayio.Group(max_size=8)
+                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 6 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=200, y=y_offset),
+                            label.Label(font, color=color, max_glyphs=20, x=200, y=y_offset + 1 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=200, y=y_offset + 2 * y_spacing),
+                            label.Label(font, color=color, max_glyphs=20, x=200, y=y_offset + 3 * y_spacing)]
+
+        self.text_group = displayio.Group(max_size=12)
         for tl in self.text_labels:
             self.text_group.append(tl)
         self.display.show(self.text_group)
@@ -461,11 +474,11 @@ class TFT_3:
             self.text_group[self.update_line].text = strings[self.update_string]
 
             self.update_line += 1
-            if self.update_line > 6:
+            if self.update_line > 10:
                 self.update_line = 0
 
             self.update_string += 1
-            if self.update_string > 5:
+            if self.update_string > 10:
                 self.update_string = 0
 
             self.display.show(self.text_group)
