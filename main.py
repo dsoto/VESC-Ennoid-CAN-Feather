@@ -56,9 +56,10 @@ class DERIVED:
     def __init__(self):
         self.last_sample = time.monotonic()
         self.sampling_interval = 0.5
+        self.string_formats = [('high_cell_voltage',     vehicle_data, 'Vh', 3),
+                        ('low_cell_voltage',     vehicle_data, 'Vl', 3)]
 
-
-    def update(self, ready):
+    def update(self, ready, strings):
         if ready == True:
             print('o', end='')
             # reset time stamps
@@ -68,7 +69,16 @@ class DERIVED:
             derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
             derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
             derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
+            self.make_strings(strings)
         return False
+
+    def make_strings(self, strings):
+
+        for i, l in enumerate(self.string_formats):
+            if l[1][l[0]] == None:
+                strings[i] = f'{l[2]} ---'
+            else:
+                strings[i] = f'{l[2]} {l[1][l[0]]:.2f}'
 
 class CONSOLE:
 
@@ -475,7 +485,7 @@ debug_pin.direction = digitalio.Direction.OUTPUT
 print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data)
-    ready_to_calculate = derived.update(ready_to_calculate)
+    ready_to_calculate = derived.update(ready_to_calculate, strings)
     console.update()
     debug_pin.value = True
     tft.update(strings)
