@@ -58,6 +58,7 @@ class DERIVED:
     def __init__(self):
         self.last_sample = time.monotonic()
         self.sampling_interval = 0.5
+        self.string_index = 0
         self.string_formats = [('high_cell_voltage',     vehicle_data, 'Vh', 3),
                                ('low_cell_voltage',     vehicle_data, 'Vl', 3),
                                ('speed',     derived_data, 'S',   1),
@@ -82,21 +83,33 @@ class DERIVED:
             # reset time stamps
             time_delta = time.monotonic() - self.last_sample
             self.last_sample = time.monotonic()
-            derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
+            if vehicle_data['motor_rpm'] is not None:
+                derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
             derived_data['distance'] += derived_data['speed'] * time_delta / 1000.0
-            derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
-            derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
+            if vehicle_data['battery_current'] is not None and vehicle_data['battery_voltage'] is not None:
+                derived_data['energy'] += vehicle_data['battery_current'] * vehicle_data['battery_voltage'] * time_delta / 3600.0
+                derived_data['charge'] += vehicle_data['battery_current'] * time_delta / 3600.0
             derived_data['time_delta'] = time_delta
             self.make_strings(strings)
         return False
 
     def make_strings(self, strings):
-
-        for i, l in enumerate(self.string_formats):
-            if l[1][l[0]] == None:
-                strings[i] = f'{l[2]} ---'
+        print('mkstr')
+        print(vehicle_data)
+        # don't use enumerate
+        # for i, l in enumerate(self.string_formats):
+        for l in self.string_formats:
+            print(l[1][l[0]])
+            if l[1][l[0]] is None:
+                print('x', end='')
+                strings[self.string_index] = f'{l[2]} ---'
             else:
-                strings[i] = f'{l[2]} {l[1][l[0]]:.2f}'
+                strings[self.string_index] = f'{l[2]} {l[1][l[0]]:.2f}'
+            if self.string_index >= 15:
+                self.string_index = 0
+            else:
+                self.string_index += 1
+
 
 class CONSOLE:
 
@@ -134,7 +147,7 @@ class CONSOLE:
         for l in self.display:
             # TODO: how to format number of decimal places
             #print(f'{l[2]} {l[1][l[0]]:.{l[3]}f}', end=' | ')
-            if l[1][l[0]] == None:
+            if l[1][l[0]] is None:
                 print(f'{l[2]} ---', end=' | ')
             else:
                 print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
@@ -147,8 +160,11 @@ class CONSOLE:
             self.line_counter = 0
         else:
             self.line_counter += 1
+        # print(l[1][l[0]])
         if l[1][l[0]] == None:
+            # print('X', end='')
             print(f'{l[2]} ---', end=' | ')
+            # strings[self.line_counter] = '---'
         else:
             print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
 
@@ -156,7 +172,7 @@ class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 2.0
+        self.can_timeout = 0.5
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -206,12 +222,15 @@ class CANBUS:
         else:
             print('.', end='')
 
+        # if timed out, set all data to none, and signal ready to calculate (with null data)
         if time.monotonic() - self.last_read > self.can_timeout:
+            print('TKO')
             for k in vehicle_data.keys():
                 vehicle_data[k] = None
             self.received_flags = {k:False for k in self.packet_variables.keys()}
             self.last_read = time.monotonic()
-            return False
+            print(vehicle_data)
+            return True
 
         if all(self.received_flags.values()) == True:
             self.received_flags = {k:False for k in self.packet_variables.keys()}
@@ -439,7 +458,7 @@ class TFT_2:
 
 class TFT_3:
     def __init__(self):
-        self.update_interval = 0.050
+        self.update_interval = 0.020
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
