@@ -79,9 +79,11 @@ class DERIVED:
 
     def update(self, ready, strings):
         if ready == True:
-            print('o', end='')
             # reset time stamps
             time_delta = time.monotonic() - self.last_sample
+            print()
+            print('o', end=' ')
+            print(time_delta)
             self.last_sample = time.monotonic()
             if vehicle_data['motor_rpm'] is not None:
                 derived_data['speed'] = vehicle_data['motor_rpm'] * vehicle_parameters['wheel_circumference'] / 23 / 60.0
@@ -94,14 +96,14 @@ class DERIVED:
         return False
 
     def make_strings(self, strings):
-        print('mkstr')
-        print(vehicle_data)
+        # print('mkstr')
+        # print(vehicle_data)
         # don't use enumerate
         # for i, l in enumerate(self.string_formats):
         for l in self.string_formats:
-            print(l[1][l[0]])
+            # print(l[1][l[0]])
             if l[1][l[0]] is None:
-                print('x', end='')
+                # print('x', end='')
                 strings[self.string_index] = f'{l[2]} ---'
             else:
                 strings[self.string_index] = f'{l[2]} {l[1][l[0]]:.2f}'
@@ -143,7 +145,7 @@ class CONSOLE:
             self.last_display = time.monotonic()
 
     def print_to_console(self):
-        print()
+        # print()
         for l in self.display:
             # TODO: how to format number of decimal places
             #print(f'{l[2]} {l[1][l[0]]:.{l[3]}f}', end=' | ')
@@ -154,25 +156,25 @@ class CONSOLE:
         print(f'{time.monotonic():.3f}')
 
     def print_to_console_by_line(self):
-        print()
+        # print()
         l = self.display[self.line_counter]
         if self.line_counter >= (self.num_display - 1):
             self.line_counter = 0
         else:
             self.line_counter += 1
         # print(l[1][l[0]])
-        if l[1][l[0]] == None:
+        # if l[1][l[0]] == None:
             # print('X', end='')
-            print(f'{l[2]} ---', end=' | ')
+            # print(f'{l[2]} ---', end=' | ')
             # strings[self.line_counter] = '---'
-        else:
-            print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
+        # else:
+            # print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
 
 class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 0.5
+        self.can_timeout = 2.0
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -229,7 +231,7 @@ class CANBUS:
                 vehicle_data[k] = None
             self.received_flags = {k:False for k in self.packet_variables.keys()}
             self.last_read = time.monotonic()
-            print(vehicle_data)
+            # print(vehicle_data)
             return True
 
         if all(self.received_flags.values()) == True:
@@ -458,7 +460,7 @@ class TFT_2:
 
 class TFT_3:
     def __init__(self):
-        self.update_interval = 0.020
+        self.update_interval = 0.110
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
@@ -500,6 +502,7 @@ class TFT_3:
 
     def update(self, strings):
         if time.monotonic() - self.last_update > self.update_interval:
+            print('t', end='')
             self.last_update = time.monotonic()
             # self.print_to_console()
             self.text_group[self.update_line].text = strings[self.update_string]
