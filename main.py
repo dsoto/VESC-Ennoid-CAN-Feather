@@ -204,7 +204,15 @@ class CANBUS:
         self.received_flags = {k:False for k in self.packet_variables.keys()}
 
 
-    def update(self, vehicle_data):
+    def update(self, vehicle_data, ready_to_calculate):
+
+        # when CAN cycle starts again set all observations to None
+        if ready_to_calculate == True:
+            for k in vehicle_data.keys():
+                vehicle_data[k] = None
+            self.received_flags = {k:False for k in self.packet_variables.keys()}
+            print(vehicle_data)
+
         # message = self.bus.recv(timeout=0.050)
         message = self.listener.receive()
         if message is not None:
@@ -227,11 +235,11 @@ class CANBUS:
         # if timed out, set all data to none, and signal ready to calculate (with null data)
         if time.monotonic() - self.last_read > self.can_timeout:
             print('TKO')
-            for k in vehicle_data.keys():
-                vehicle_data[k] = None
+            # for k in vehicle_data.keys():
+            #     vehicle_data[k] = None
             self.received_flags = {k:False for k in self.packet_variables.keys()}
             self.last_read = time.monotonic()
-            # print(vehicle_data)
+            print(vehicle_data)
             return True
 
         if all(self.received_flags.values()) == True:
@@ -529,9 +537,11 @@ tft = TFT_3()
 debug_pin = digitalio.DigitalInOut(board.D11)
 debug_pin.direction = digitalio.Direction.OUTPUT
 
+ready_to_calculate = False
+
 print("ENNOID/VESC CAN reader")
 while 1:
-    ready_to_calculate = canbus.update(vehicle_data)
+    ready_to_calculate = canbus.update(vehicle_data, ready_to_calculate)
     ready_to_calculate = derived.update(ready_to_calculate, strings)
     console.update()
     debug_pin.value = True
