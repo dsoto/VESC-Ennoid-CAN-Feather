@@ -189,7 +189,7 @@ class CANBUS:
 
         # define CAN messages to interpret
         self.packet_variables = {0x0901: [('motor_rpm',     '>l', 0, 4, 1E0),
-                                          ('motor_current', '>H', 4, 2, 1E1)],
+                                          ('motor_current', '>h', 4, 2, 1E1)],
                                  0x1001: [('controller_temperature', '>H', 0, 2, 1E1),
                                           ('motor_temperature',      '>h', 2, 2, 1E1),
                                           ('battery_current',        '>h', 4, 2, 1E1)],
