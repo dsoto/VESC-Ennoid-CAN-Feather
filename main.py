@@ -19,20 +19,20 @@ from adafruit_hx8357 import HX8357
 
 spi = board.SPI()
 
-vehicle_data = {'battery_voltage':0,
-                'battery_current':0,
-                'battery_voltage_BMS':0,
-                'battery_current_BMS':0,
-                'high_cell_voltage':0,
-                'low_cell_voltage':0,
-                'high_battery_temp':0,
-                'high_BMS_temp':0,
-                'motor_rpm':0,
-                'total_current':0,
-                'motor_temperature':0,
-                'motor_current':0,
-                'controller_temperature':0,
-                'dummy':0}
+vehicle_data = {'battery_voltage':None,
+                'battery_current':None,
+                'battery_voltage_BMS':None,
+                'battery_current_BMS':None,
+                'high_cell_voltage':None,
+                'low_cell_voltage':None,
+                'high_battery_temp':None,
+                'high_BMS_temp':None,
+                'motor_rpm':None,
+                'total_current':None,
+                'motor_temperature':None,
+                'motor_current':None,
+                'controller_temperature':None,
+                'dummy':None}
 
 time_stamps = {'event_loop_current':0,
                'event_loop_previous':0,
@@ -389,7 +389,7 @@ console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
-sdcard = SDCARD()
+#sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -400,10 +400,11 @@ ready_to_calculate = False
 print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data, ready_to_calculate)
-    ready_to_calculate = derived.update(ready_to_calculate, strings)
+    # ready_to_calculate = derived.update(ready_to_calculate, strings)
+    derived.update(ready_to_calculate, strings)
     console.update()
     debug_pin.value = True
     tft.update(strings)
     debug_pin.value = False
-    sdcard.update()
+    #sdcard.update()
     #time.sleep(0.050)
