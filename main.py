@@ -174,7 +174,7 @@ class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 2.0
+        self.can_timeout = 0.250
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -392,10 +392,11 @@ print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update(vehicle_data, ready_to_calculate)
     # ready_to_calculate = derived.update(ready_to_calculate, strings)
-    derived.update(ready_to_calculate, strings)
-    console.update()
-    debug_pin.value = True
+    if ready_to_calculate == True:
+        derived.update(ready_to_calculate, strings)
+        sdcard.update()
+    # console.update()
+    # debug_pin.value = True
     tft.update(strings)
-    debug_pin.value = False
-    sdcard.update()
+    # debug_pin.value = False
     #time.sleep(0.050)
