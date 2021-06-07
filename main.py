@@ -291,36 +291,27 @@ class SDCARD:
 
         elif self.state == 'write':
             self.last_write_time = time.monotonic()
+            data = [time.monotonic() - self.start_time,
+                    vehicle_data['high_cell_voltage'],
+                    vehicle_data['low_cell_voltage'],
+                    vehicle_data['battery_voltage'],
+                    vehicle_data['battery_current'],
+                    vehicle_data['battery_voltage_BMS'],
+                    vehicle_data['battery_current_BMS'],
+                    vehicle_data['motor_current'],
+                    vehicle_data['high_battery_temp'],
+                    vehicle_data['high_BMS_temp'],
+                    vehicle_data['motor_temperature'],
+                    vehicle_data['controller_temperature'],
+                    derived_data['internal_resistance'],
+                    derived_data['distance'],
+                    vehicle_data['motor_rpm']]
+
             with open(self.filename, 'a') as file:
-                file.write('%0.3f' % (time.monotonic() - self.start_time))
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['high_cell_voltage'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['low_cell_voltage'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['battery_voltage'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['battery_current'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['battery_voltage_BMS'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['battery_current_BMS'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['motor_current'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['high_battery_temp'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['high_BMS_temp'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['motor_temperature'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['controller_temperature'])
-                file.write(',')
-                file.write('%0.4f' % derived_data['internal_resistance'])
-                file.write(',')
-                file.write('%0.2f' % derived_data['distance'])
-                file.write(',')
-                file.write('%0.2f' % vehicle_data['motor_rpm'])
+                for d in data:
+                    if d is not None:
+                        file.write('%0.2f' % d)
+                    file.write(',')
                 file.write('\n')
             self.state = 'idle'
             # self.state = 'write'
@@ -389,7 +380,7 @@ console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
-#sdcard = SDCARD()
+sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -406,5 +397,5 @@ while 1:
     debug_pin.value = True
     tft.update(strings)
     debug_pin.value = False
-    #sdcard.update()
+    sdcard.update()
     #time.sleep(0.050)
