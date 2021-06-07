@@ -389,7 +389,7 @@ console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
-# sdcard = SDCARD()
+sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -405,5 +405,5 @@ while 1:
     debug_pin.value = True
     tft.update(strings)
     debug_pin.value = False
-    # sdcard.update()
+    sdcard.update()
     #time.sleep(0.050)
