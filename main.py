@@ -174,7 +174,7 @@ class CANBUS:
 
     def __init__(self):
 
-        self.can_timeout = 0.250
+        self.can_timeout = 0.500
         self.last_read = time.monotonic()
         if hasattr(board, 'BOOST_ENABLE'):
             boost_enable = digitalio.DigitalInOut(board.BOOST_ENABLE)
@@ -203,6 +203,47 @@ class CANBUS:
 
         self.received_flags = {k:False for k in self.packet_variables.keys()}
 
+    def update_block(self, vehicle_data, ready_to_calculate):
+
+        # start with all flags set to false
+        for k in vehicle_data.keys():
+            vehicle_data[k] = None
+        self.received_flags = {k:False for k in self.packet_variables.keys()}
+
+        # set timeout start
+        self.last_read = time.monotonic()
+        while True:
+            print('.', end='')
+        # loop untill all flags set or timeout
+            if time.monotonic() - self.last_read > self.can_timeout:
+                print('tko')
+                break
+
+            if all(self.received_flags.values()) == True:
+                print('True')
+                break
+
+            message = self.listener.receive()
+            if message is not None:
+                # print('+', end='')
+                # iterate over variables and store for expected messages
+                if message.id in self.packet_variables.keys():
+                # if message.id in self.packet_variables.keys():
+                    self.received_flags[message.id] = True
+                    # print(self.received_flags)
+                    print('+', end='')
+                    # print(hex(message.id))
+                    for pv in self.packet_variables[message.id]:
+                        vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
+                else:
+                    print('-', end='')
+                    # print(hex(message.id))
+            else:
+                    print('.', end='')
+
+        # if timed out, set all data to none, and signal ready to calculate (with null data)
+
+        return True
 
     def update(self, vehicle_data, ready_to_calculate):
 
@@ -359,8 +400,8 @@ class TFT:
 
 
     def update_line_by_line(self, strings):
-        if time.monotonic() - self.last_update > self.update_interval:
-            print('t', end='')
+        # if time.monotonic() - self.last_update > self.update_interval:
+            # print('t', end='')
             self.last_update = time.monotonic()
             # self.print_to_console()
             self.text_group[self.update_line].text = strings[self.update_string]
@@ -377,22 +418,24 @@ class TFT:
             self.display.refresh(target_frames_per_second=None)
 
     def update_all(self, strings):
-        if time.monotonic() - self.last_update > self.update_interval:
+        # if time.monotonic() - self.last_update > self.update_interval:
+        if True:
+            print('utft')
             self.last_update = time.monotonic()
             # self.print_to_console()
             for i in range(16):
                 self.text_group[i].text = strings[i]
 
             # self.display.refresh(target_frames_per_second=None)
-            self.display.refresh(target_frames_per_second=1)
-            # self.display.refresh()
+            # self.display.refresh(target_frames_per_second=1)
+            self.display.refresh()
 
 
 console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
-sdcard = SDCARD()
+# sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -402,13 +445,15 @@ ready_to_calculate = False
 
 print("ENNOID/VESC CAN reader")
 while 1:
-    ready_to_calculate = canbus.update(vehicle_data, ready_to_calculate)
+    ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
     # ready_to_calculate = derived.update(ready_to_calculate, strings)
-    if ready_to_calculate == True:
-        derived.update(ready_to_calculate, strings)
-        sdcard.update()
-    # console.update()
+    # if ready_to_calculate == True:
+    derived.update(ready_to_calculate, strings)
+        # sdcard.update()
+    console.update()
     # debug_pin.value = True
+    print('btft')
     tft.update_line_by_line(strings)
+    # tft.update_all(strings)
     # debug_pin.value = False
     #time.sleep(0.050)
