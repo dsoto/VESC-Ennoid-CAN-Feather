@@ -420,7 +420,6 @@ class TFT:
     def update_all(self, strings):
         # if time.monotonic() - self.last_update > self.update_interval:
         if True:
-            print('utft')
             self.last_update = time.monotonic()
             # self.print_to_console()
             for i in range(16):
@@ -435,7 +434,7 @@ console = CONSOLE()
 canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
-# sdcard = SDCARD()
+sdcard = SDCARD()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -449,10 +448,9 @@ while 1:
     # ready_to_calculate = derived.update(ready_to_calculate, strings)
     # if ready_to_calculate == True:
     derived.update(ready_to_calculate, strings)
-        # sdcard.update()
-    console.update()
+    sdcard.update()
+    # console.update()
     # debug_pin.value = True
-    print('btft')
     tft.update_line_by_line(strings)
     # tft.update_all(strings)
     # debug_pin.value = False
