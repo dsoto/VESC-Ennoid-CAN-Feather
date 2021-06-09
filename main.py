@@ -316,7 +316,7 @@ class SDCARD:
 
 class TFT:
     def __init__(self):
-        self.update_interval = 0.150
+        self.update_interval = 1.0
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
