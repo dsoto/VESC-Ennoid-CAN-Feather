@@ -211,7 +211,6 @@ class CANBUS:
             for k in vehicle_data.keys():
                 vehicle_data[k] = None
             self.received_flags = {k:False for k in self.packet_variables.keys()}
-            print(vehicle_data)
 
         # message = self.bus.recv(timeout=0.050)
         message = self.listener.receive()
@@ -239,7 +238,6 @@ class CANBUS:
             #     vehicle_data[k] = None
             self.received_flags = {k:False for k in self.packet_variables.keys()}
             self.last_read = time.monotonic()
-            print(vehicle_data)
             return True
 
         if all(self.received_flags.values()) == True:
@@ -318,7 +316,7 @@ class SDCARD:
 
 class TFT:
     def __init__(self):
-        self.update_interval = 0.110
+        self.update_interval = 0.500
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
@@ -330,7 +328,7 @@ class TFT:
         self.display_bus = displayio.FourWire(self.spi,
                                               command=self.tft_dc,
                                               chip_select=self.tft_cs)
-        self.display = HX8357(self.display_bus, width=480, height=320)
+        self.display = HX8357(self.display_bus, width=480, height=320, auto_refresh=False)
         font = bitmap_font.load_font("fonts/tnr-28.bdf")
         color = 0xFFFFFF
         y_spacing = 34
@@ -374,6 +372,7 @@ class TFT:
                 self.update_string = 0
 
             self.display.show(self.text_group)
+            self.display.refresh()
 
 
 console = CONSOLE()
