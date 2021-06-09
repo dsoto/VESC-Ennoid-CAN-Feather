@@ -316,7 +316,7 @@ class SDCARD:
 
 class TFT:
     def __init__(self):
-        self.update_interval = 0.500
+        self.update_interval = 0.150
         self.last_update = time.monotonic()
         self.update_line = 0
         self.update_string = 0
@@ -329,34 +329,36 @@ class TFT:
                                               command=self.tft_dc,
                                               chip_select=self.tft_cs)
         self.display = HX8357(self.display_bus, width=480, height=320, auto_refresh=False)
-        font = bitmap_font.load_font("fonts/tnr-28.bdf")
+        # font = bitmap_font.load_font("fonts/tnr-28.bdf")
+        font = terminalio.FONT
         color = 0xFFFFFF
         y_spacing = 34
         y_offset = 16
 
-        self.text_labels = [label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 1 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 2 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 3 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 4 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 5 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 6 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=10, y=y_offset + 7 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 1 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 2 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 3 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 4 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 5 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 6 * y_spacing),
-                            label.Label(font, color=color, max_glyphs=20, x=240, y=y_offset + 7 * y_spacing)]
+        self.text_labels = [label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 1 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 2 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 3 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 4 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 5 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 6 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=10, y=y_offset + 7 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 1 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 2 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 3 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 4 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 5 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 6 * y_spacing),
+                            label.Label(font, scale=3, color=color, max_glyphs=20, x=240, y=y_offset + 7 * y_spacing)]
 
         self.text_group = displayio.Group(max_size=16)
         for tl in self.text_labels:
             self.text_group.append(tl)
         self.display.show(self.text_group)
 
-    def update(self, strings):
+
+    def update_line_by_line(self, strings):
         if time.monotonic() - self.last_update > self.update_interval:
             print('t', end='')
             self.last_update = time.monotonic()
@@ -371,8 +373,19 @@ class TFT:
             if self.update_string > 15:
                 self.update_string = 0
 
-            self.display.show(self.text_group)
-            self.display.refresh()
+            #self.display.show(self.text_group)
+            self.display.refresh(target_frames_per_second=None)
+
+    def update_all(self, strings):
+        if time.monotonic() - self.last_update > self.update_interval:
+            self.last_update = time.monotonic()
+            # self.print_to_console()
+            for i in range(16):
+                self.text_group[i].text = strings[i]
+
+            # self.display.refresh(target_frames_per_second=None)
+            self.display.refresh(target_frames_per_second=1)
+            # self.display.refresh()
 
 
 console = CONSOLE()
@@ -396,6 +409,6 @@ while 1:
         sdcard.update()
     # console.update()
     # debug_pin.value = True
-    tft.update(strings)
+    tft.update_line_by_line(strings)
     # debug_pin.value = False
     #time.sleep(0.050)
