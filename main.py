@@ -181,6 +181,7 @@ class CANBUS:
             boost_enable.switch_to_output(True)
 
         self.can = canio.CAN(rx=board.CAN_RX, tx=board.CAN_TX, baudrate=500_000, auto_restart=True)
+        # self.can = canio.CAN(rx=board.CAN_RX, tx=board.CAN_TX, baudrate=125_000, auto_restart=True)
         self.listener = self.can.listen(timeout=.005)
 
         # self.bus = can.interface.Bus(bustype='slcan',
@@ -429,24 +430,90 @@ class TFT:
             # self.display.refresh(target_frames_per_second=1)
             self.display.refresh()
 
+class UART:
+    def __init__(self):
+    # ser = serial.Serial(port=port, baudrate=115200, timeout=1)
+        self.uart = busio.UART(board.TX, board.RX, baudrate=115200, timeout=0.5)
+
+    def update(self, vehicle_data):
+
+        # initialize data
+        for k in vehicle_data.keys():
+            vehicle_data[k] = None
+
+        self.update_EBMS(vehicle_data)
+        self.update_ZESC(vehicle_data)
+
+    def update_EBMS(self, vehicle_data):
+        request = bytes([0x02, 0x01, 0x04, 0x40, 0x84, 0x03])
+        packet_length = 55
+
+        EBMS_data = [['battery_voltage_BMS',        '>l',  3, 4, 1E3],
+                     ['battery_current_BMS',        '>l',  7, 4, 1E3],
+                     ['high_cell_voltage',          '>L', 12, 4, 1E3],
+                     ['low_cell_voltage',           '>L', 20, 4, 1E3],
+                     ['high_battery_temp',          '>h', 34, 2, 1E1],
+                     ['high_BMS_temp',              '>h', 40, 2, 1E1]]
+            # poll
+        self.uart.write(request)
+        response = self.uart.read(packet_length)
+        if response is not None:
+            for ed in EBMS_data:
+                key, format, start, length, scale = ed
+                vehicle_data[key] = struct.unpack(format, response[start:start+length])[0]/scale
+
+            # if time out
+            # if done
+            # stretch: checksum
+
+    def update_ZESC(self, vehicle_data):
+
+        request = bytes([0x02, 0x03, 0x22, 0x01, 0x04, 0x9B, 0x13, 0x03])
+        packet_length = 78
+
+        ZESC_data = [['controller_temperature', '>h',  3, 2, 1E1],
+                    ['motor_temperature',      '>h',  5, 2, 1E1],
+                    ['motor_current',          '>l',  7, 4, 1E2],
+                    ['battery_current',        '>l', 11, 4, 1E2],
+                    ['motor_rpm',              '>l', 25, 4, 1E0],
+                    ['battery_voltage',        '>h', 29, 2, 1E1]]
+
+        self.uart.write(request)
+        response = None
+        response = self.uart.read(packet_length)
+        # print(response)
+        # poll
+
+        if response is not None:
+            for zd in ZESC_data:
+                key, format, start, length, scale = zd
+                vehicle_data[key] = struct.unpack(format, response[start:start+length])[0]/scale
+        # if time out
+        # if done
+
+    def checksum(self):
+        pass
+
 
 console = CONSOLE()
-canbus = CANBUS()
+# canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
 sdcard = SDCARD()
+uart = UART()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
 debug_pin.direction = digitalio.Direction.OUTPUT
 
-ready_to_calculate = False
+ready_to_calculate = True
 
 print("ENNOID/VESC CAN reader")
 while 1:
-    ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
+    # ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
     # ready_to_calculate = derived.update(ready_to_calculate, strings)
     # if ready_to_calculate == True:
+    uart.update(vehicle_data)
     derived.update(ready_to_calculate, strings)
     sdcard.update()
     # console.update()
