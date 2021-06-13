@@ -293,15 +293,18 @@ class SDCARD:
     def __init__(self):
 
         self.cs = board.D5
-        self.sdcard = sdcardio.SDCard(spi, self.cs)
 
-        self.vfs = storage.VfsFat(self.sdcard)
+        try:
+            self.sdcard = sdcardio.SDCard(spi, self.cs)
+            self.vfs = storage.VfsFat(self.sdcard)
+            storage.mount(self.vfs, '/sd')
+        except:
+            self.filename = None
+            return
+
         self.num_data_points = 10
         self.data_point = 0
         self.start_time = 0
-
-        # TODO: graceful fail if no SD card
-        storage.mount(self.vfs, '/sd')
 
         self.state = 'write'
         self.last_write_time = 0.0
@@ -433,7 +436,7 @@ class TFT:
 class UART:
     def __init__(self):
     # ser = serial.Serial(port=port, baudrate=115200, timeout=1)
-        self.uart = busio.UART(board.TX, board.RX, baudrate=115200, timeout=0.5)
+        self.uart = busio.UART(board.TX, board.RX, baudrate=115200, timeout=0.1)
 
     def update(self, vehicle_data):
 
@@ -496,11 +499,11 @@ class UART:
 
 
 console = CONSOLE()
-# canbus = CANBUS()
+canbus = CANBUS()
 derived = DERIVED()
 tft = TFT()
 sdcard = SDCARD()
-uart = UART()
+# uart = UART()
 
 
 debug_pin = digitalio.DigitalInOut(board.D11)
@@ -510,12 +513,13 @@ ready_to_calculate = True
 
 print("ENNOID/VESC CAN reader")
 while 1:
-    # ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
+    ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
     # ready_to_calculate = derived.update(ready_to_calculate, strings)
     # if ready_to_calculate == True:
-    uart.update(vehicle_data)
+    # uart.update(vehicle_data)
     derived.update(ready_to_calculate, strings)
-    sdcard.update()
+    if sdcard.filename is not None:
+        sdcard.update()
     # console.update()
     # debug_pin.value = True
     tft.update_line_by_line(strings)
