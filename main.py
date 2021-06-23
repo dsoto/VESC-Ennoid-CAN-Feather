@@ -96,14 +96,8 @@ class DERIVED:
         return False
 
     def make_strings(self, strings):
-        # print('mkstr')
-        # print(vehicle_data)
-        # don't use enumerate
-        # for i, l in enumerate(self.string_formats):
         for l in self.string_formats:
-            # print(l[1][l[0]])
             if l[1][l[0]] is None:
-                # print('x', end='')
                 strings[self.string_index] = f'{l[2]} ---'
             else:
                 strings[self.string_index] = f'{l[2]} {l[1][l[0]]:.2f}'
@@ -145,10 +139,8 @@ class CONSOLE:
             self.last_display = time.monotonic()
 
     def print_to_console(self):
-        # print()
         for l in self.display:
             # TODO: how to format number of decimal places
-            #print(f'{l[2]} {l[1][l[0]]:.{l[3]}f}', end=' | ')
             if l[1][l[0]] is None:
                 print(f'{l[2]} ---', end=' | ')
             else:
@@ -156,19 +148,11 @@ class CONSOLE:
         print(f'{time.monotonic():.3f}')
 
     def print_to_console_by_line(self):
-        # print()
         l = self.display[self.line_counter]
         if self.line_counter >= (self.num_display - 1):
             self.line_counter = 0
         else:
             self.line_counter += 1
-        # print(l[1][l[0]])
-        # if l[1][l[0]] == None:
-            # print('X', end='')
-            # print(f'{l[2]} ---', end=' | ')
-            # strings[self.line_counter] = '---'
-        # else:
-            # print(f'{l[2]} {l[1][l[0]]:.2f}', end=' | ')
 
 class CANBUS:
 
@@ -181,12 +165,7 @@ class CANBUS:
             boost_enable.switch_to_output(True)
 
         self.can = canio.CAN(rx=board.CAN_RX, tx=board.CAN_TX, baudrate=500_000, auto_restart=True)
-        # self.can = canio.CAN(rx=board.CAN_RX, tx=board.CAN_TX, baudrate=125_000, auto_restart=True)
         self.listener = self.can.listen(timeout=.005)
-
-        # self.bus = can.interface.Bus(bustype='slcan',
-        #                         channel='/dev/tty.usbmodem14101',
-        #                         bitrate=500000)
 
         # define CAN messages to interpret
         self.packet_variables = {0x0901: [('motor_rpm',     '>l', 0, 4, 1E0),
@@ -226,68 +205,17 @@ class CANBUS:
 
             message = self.listener.receive()
             if message is not None:
-                # print('+', end='')
-                # iterate over variables and store for expected messages
                 if message.id in self.packet_variables.keys():
-                # if message.id in self.packet_variables.keys():
                     self.received_flags[message.id] = True
-                    # print(self.received_flags)
                     print('+', end='')
-                    # print(hex(message.id))
                     for pv in self.packet_variables[message.id]:
                         vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
                 else:
                     print('-', end='')
-                    # print(hex(message.id))
             else:
                     print('.', end='')
 
-        # if timed out, set all data to none, and signal ready to calculate (with null data)
-
         return True
-
-    def update(self, vehicle_data, ready_to_calculate):
-
-        # when CAN cycle starts again set all observations to None
-        if ready_to_calculate == True:
-            for k in vehicle_data.keys():
-                vehicle_data[k] = None
-            self.received_flags = {k:False for k in self.packet_variables.keys()}
-
-        # message = self.bus.recv(timeout=0.050)
-        message = self.listener.receive()
-        if message is not None:
-            # print('+', end='')
-            # iterate over variables and store for expected messages
-            if message.id in self.packet_variables.keys():
-            # if message.id in self.packet_variables.keys():
-                self.received_flags[message.id] = True
-                # print(self.received_flags)
-                print('+', end='')
-                # print(hex(message.id))
-                for pv in self.packet_variables[message.id]:
-                    vehicle_data[pv[0]] = struct.unpack(pv[1], message.data[pv[2]:pv[2]+pv[3]])[0]/pv[4]
-            else:
-                print('-', end='')
-                # print(hex(message.id))
-        else:
-            print('.', end='')
-
-        # if timed out, set all data to none, and signal ready to calculate (with null data)
-        if time.monotonic() - self.last_read > self.can_timeout:
-            print('TKO')
-            # for k in vehicle_data.keys():
-            #     vehicle_data[k] = None
-            self.received_flags = {k:False for k in self.packet_variables.keys()}
-            self.last_read = time.monotonic()
-            return True
-
-        if all(self.received_flags.values()) == True:
-            self.received_flags = {k:False for k in self.packet_variables.keys()}
-            self.last_read = time.monotonic()
-            return True
-        else:
-            return False
 
 class SDCARD:
     def __init__(self):
@@ -374,7 +302,6 @@ class TFT:
                                               command=self.tft_dc,
                                               chip_select=self.tft_cs)
         self.display = HX8357(self.display_bus, width=480, height=320, auto_refresh=False)
-        # font = bitmap_font.load_font("fonts/tnr-28.bdf")
         font = terminalio.FONT
         color = 0xFFFFFF
         y_spacing = 34
@@ -422,7 +349,6 @@ class TFT:
             self.display.refresh(target_frames_per_second=None)
 
     def update_all(self, strings):
-        # if time.monotonic() - self.last_update > self.update_interval:
         if True:
             self.last_update = time.monotonic()
             # self.print_to_console()
@@ -435,7 +361,6 @@ class TFT:
 
 class UART:
     def __init__(self):
-    # ser = serial.Serial(port=port, baudrate=115200, timeout=1)
         self.uart = busio.UART(board.TX, board.RX, baudrate=115200, timeout=0.1)
 
     def update(self, vehicle_data):
@@ -465,9 +390,6 @@ class UART:
                 key, format, start, length, scale = ed
                 vehicle_data[key] = struct.unpack(format, response[start:start+length])[0]/scale
 
-            # if time out
-            # if done
-            # stretch: checksum
 
     def update_ZESC(self, vehicle_data):
 
@@ -514,8 +436,6 @@ ready_to_calculate = True
 print("ENNOID/VESC CAN reader")
 while 1:
     ready_to_calculate = canbus.update_block(vehicle_data, ready_to_calculate)
-    # ready_to_calculate = derived.update(ready_to_calculate, strings)
-    # if ready_to_calculate == True:
     # uart.update(vehicle_data)
     derived.update(ready_to_calculate, strings)
     if sdcard.filename is not None:
@@ -525,4 +445,3 @@ while 1:
     tft.update_line_by_line(strings)
     # tft.update_all(strings)
     # debug_pin.value = False
-    #time.sleep(0.050)
